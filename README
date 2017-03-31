@@ -1,0 +1,38 @@
+developed & tested with
+=======================
+
+kucar@kucar-makine:~/workspace/SBStask$ uname -a
+Linux kucar-makine 4.8.0-41-generic #44-Ubuntu SMP Fri Mar 3 15:27:17 UTC 2017 x86_64 x86_64 x86_64 GNU/Linux
+
+configuration & installation
+=============================
+*the program files need to be compiled with g++ (-std=c++11)
+*change dir into the program folder
+*make
+*./SBStask --help for command line options
+
+
+sample output
+=============================
+kucar@kucar-makine:~/workspace/SBStask$ ./SBStask --filename kmer.fastq --kmersize 30 --topcount 15 --stats --linesizestatic
+{ TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT, 300}
+{ AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA, 219}
+{ ACACACACACACACACACACACACACACAC, 152}
+{ GTGTGTGTGTGTGTGTGTGTGTGTGTGTGT, 150}
+{ CACACACACACACACACACACACACACACA, 145}
+{ TGTGTGTGTGTGTGTGTGTGTGTGTGTGTG, 145}
+{ CCCCCCCCCCCCCCCCCCCCCCCCCCCCCC, 105}
+{ GAAAGATGAAAAGGATCAAGAGCCCATTTA, 42}
+{ TCAAGAGCCCATTTATGCCATAGTGCCCAC, 42}
+{ GGAGAAAGATGAAAAGGATCAAGAGCCCAT, 42}
+{ AGAAAGATGAAAAGGATCAAGAGCCCATTT, 42}
+{ AGGAGAAAGATGAAAAGGATCAAGAGCCCA, 42}
+{ GAAAAGGATCAAGAGCCCATTTATGCCATA, 42}
+{ AGAGGAGAAAGATGAAAAGGATCAAGAGCC, 42}
+{ GAGGAGAAAGATGAAAAGGATCAAGAGCCC, 42}
+hash size = 11614379
+bucket count = 33712729
+load_factor = 0.34451
+max_load_factor = 1
+elapsed sec:6.32985
+top vector size: 15
