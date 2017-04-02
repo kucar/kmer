@@ -45,19 +45,16 @@ std::string filename="";
 bool stats=false;			   //print stats
 bool linesizestatic=false;     //each line lenth is constant (90) or not
 
-// static class members 
-std::unordered_map< std::string,kint >KMER_BASE::m_sequencehash;
-
-std::vector<kmer_entry>KMER_BASE::m_topNvector;
 
 
-void print_usage()
+
+void PrintUsage()
 {
 	cout<<"Usage: SBStask --filename <FILENAME> --kmersize <KMERSZ> --topcount <TOPN> [--stats --linesizestatic]\n"<<endl;
 
 }
 
-int arg_parse(int argc, char *argv[])
+int ArgParse(int argc, char *argv[])
 {
 	int opt= 0;
 	static struct option long_options[] = {
@@ -90,12 +87,12 @@ int arg_parse(int argc, char *argv[])
 			linesizestatic = true;
 			break;
 		default:
-			print_usage();
+			PrintUsage();
 			exit(PROCESS_ERROR);
 		}
 	}
 	if (kmersize <= 0 || topcount <=0 ||filename=="") {
-		print_usage();
+		PrintUsage();
 		exit(PROCESS_ERROR);
 	}
 
@@ -105,14 +102,13 @@ int arg_parse(int argc, char *argv[])
 
 int main(int argc, char *argv[]) {
 
-	arg_parse(argc,argv);
+	ArgParse(argc,argv);
 	std::shared_ptr<KMER_BASE> kmerobj (new KMER_BASE(filename,topcount,linesizestatic,kmersize,stats));
 	clock_t begin = clock();
-	kmerobj->init();
-	kmerobj->findTopN();
-	if(stats)
-		kmerobj->print_stats(begin,end);
+	kmerobj->Begin();
 	clock_t end = clock();
+	if(stats)
+		kmerobj->PrintStats(begin,end);
 	return SUCCESS;
 
 }

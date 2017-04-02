@@ -14,8 +14,6 @@ typedef std::pair<std::string,kint>  kmer_entry;
 #define SIZE_LINE 90
 
 
-
-
 //Base class holds basic attributes for kmer processing.
 //This class can be derived for other kmer counting implementations in future
 //Example :
@@ -34,17 +32,18 @@ public:
 		m_line_size_static(linesizestatic),
 		m_kmer_size(kmersize),m_stats(stats){};
 	virtual ~KMER_BASE();
-	virtual void init(void);
-	virtual void findTopN(void);
-	virtual void print_stats(clock_t , clock_t );
-private:
+	virtual void Begin(void);
+	virtual void Init(void);
+	virtual void FindTopN(void);
+	virtual void PrintStats(clock_t , clock_t );
+protected:
 	std::string m_fastq_file;
 	kint m_topcount;
 	bool m_line_size_static;
 	kint m_kmer_size;
 	bool m_stats=false;
-	static std::vector<kmer_entry> m_topNvector;
-	static std::unordered_map <std::string,kint> m_sequencehash;
+	std::vector<kmer_entry> m_topNvector;
+	std::unordered_map <std::string,kint> m_sequencehash;
 
 };
 
