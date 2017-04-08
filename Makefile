@@ -1,6 +1,4 @@
-GTEST_DIR = ~/googletest/googletest/
-GMOCK_DIR = ~/googletest/googlemock/
-CXXFLAGS =	-O0 -g -Wall -fmessage-length=0 -std=c++11 -Wno-unused-variable
+CXXFLAGS =	-O3 -g -Wall -fmessage-length=0 -std=c++11 -Wno-unused-variable
 
 OBJS =		SBStask.o kmer_hash.o
 

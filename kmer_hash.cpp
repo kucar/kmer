@@ -14,7 +14,8 @@ KMER_BASE::~KMER_BASE(){};
 //starts up the map and result vector(histogram winners)
 void KMER_BASE::Init(void)
 {
-	m_sequencehash.reserve(HASHSIZE);		  //prevent rehashing
+	unsigned long long A = (1ULL << 26);
+	m_sequencehash.rehash(A);		  //prevent rehashing
 	m_topNvector.resize(m_topcount);
 	std::string line;
 	kint linenum =1 ;
@@ -72,6 +73,7 @@ void KMER_BASE::Begin()
 void KMER_BASE::PrintStats(clock_t _begin, clock_t _end)
 {
 	std::cout << "hash size = " << m_sequencehash.size() << std::endl;
+	std::cout<<"max size can be : "<< m_sequencehash.max_bucket_count()<<std::endl;
 	std::cout << "bucket count = " << m_sequencehash.bucket_count() << std::endl;
 	std::cout << "load_factor = " << m_sequencehash.load_factor() << std::endl;
 	std::cout << "max_load_factor = " << m_sequencehash.max_load_factor() << std::endl;

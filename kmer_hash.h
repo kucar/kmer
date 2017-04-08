@@ -6,12 +6,13 @@
 #include <string>
 
 
-#define HASHSIZE (1<<25)   //2 pow 25
+
+//#define HASHSIZE (((1<<25)<<25)<<25)
 
 typedef  unsigned int kint;
 typedef std::pair<std::string,kint>  kmer_entry;
 
-#define SIZE_LINE 90
+#define SIZE_LINE 100
 
 
 //Base class holds basic attributes for kmer processing.
