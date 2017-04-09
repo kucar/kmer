@@ -8,16 +8,18 @@
 
 #define NUMLINES_ENTRY 4
 #define VALID_ENTRY    2
+#define HASHSIZE  (1ULL<<25)
 
 KMER_BASE::~KMER_BASE(){};
 
 //starts up the map and result vector(histogram winners)
 void KMER_BASE::Init(void)
 {
-	unsigned long long A = (1ULL << 26);
-	m_sequencehash.rehash(A);		  //prevent rehashing
+
+	m_sequencehash.reserve(HASHSIZE);		  //prevent rehashing
 	m_topNvector.resize(m_topcount);
 	std::string line;
+	char chararr[100];
 	kint linenum =1 ;
 	std::ifstream myfile (m_fastq_file);
 	if (myfile.is_open())

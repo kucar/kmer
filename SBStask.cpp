@@ -40,7 +40,7 @@ using namespace std;
 //globals for main program arguments
 
 int kmersize=30;   				//default
-int topcount=15;  		   		//default
+int topcount=25;  		   		//default
 std::string filename="";
 bool stats=false;			   //print stats
 bool linesizestatic=false;     //each line lenth is constant (90) or not
