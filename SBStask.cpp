@@ -44,6 +44,7 @@ int topcount=25;  		   		//default
 std::string filename="";
 bool stats=false;			   //print stats
 bool bloom= false;
+bool parallel=false;
 
 
 void PrintUsage()
@@ -64,6 +65,7 @@ int ArgParse(int argc, char *argv[])
 			{"help", 			no_argument,	    0,  'h' },
 			{"fp",	 			no_argument,	    0,  'p' },
 			{"fn", 				no_argument,	    0,  'n' },
+			{"multi", 			no_argument,	    0,  'm' },
 			{0,           		0,                  0,  0   }
 	};
 
@@ -86,6 +88,9 @@ int ArgParse(int argc, char *argv[])
 		case 'p' :
 			bloom = true;
 			break;
+		case 'm' :
+			parallel = true;
+			break;
 		default:
 			PrintUsage();
 			exit(PROCESS_ERROR);
@@ -102,7 +107,7 @@ int ArgParse(int argc, char *argv[])
 int main(int argc, char *argv[]) {
 
 	ArgParse(argc,argv);
-	std::shared_ptr<KMER_BASE> kmerobj (new KMER_BASE(filename,topcount,kmersize,stats,bloom));
+	std::shared_ptr<KMER_BASE> kmerobj (new KMER_BASE(filename,topcount,kmersize,stats,bloom,parallel));
 	volatile clock_t begin = clock();
 	kmerobj->Begin();
 	volatile clock_t end = clock();

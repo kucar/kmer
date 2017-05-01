@@ -9,6 +9,8 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+#include <omp.h>
+
 
 #define NUMLINES_ENTRY 4
 #define VALID_ENTRY    2
@@ -106,7 +108,61 @@ std::string _revhash(HashIntoType hash, WordLength k)
 }
 
 KMER_BASE::~KMER_BASE(){};
+void KMER_BASE::FileParser(std::string& _fastqfile)
+{
+	std::ifstream myfile (_fastqfile);
+	kint linenum =0 ;
+	std::string line;
+	std::string subs;
+	unsigned int limit(0);
+	m_buffer.reserve(1000);
+	if (myfile.is_open())
+	{
+		while(getline(myfile,line))
+		{
+			if(++linenum % NUMLINES_ENTRY == VALID_ENTRY) //process sequence
+			{
+				limit=line.length()-m_kmer_size;
 
+				for ( unsigned int index=0; index<=limit;  ++index)
+				{
+					if(m_buffer.size()==1000)
+					{
+						this->ProcessBuffer();
+						m_buffer.clear();
+					}
+					else
+					{
+						subs=line.substr(index,m_kmer_size);
+						m_buffer.push_back(subs);
+					}
+				}
+			}
+		}
+	}
+	this->ProcessBuffer(); //remaining items in the buffer
+}
+void KMER_BASE::ProcessBuffer(void)
+{
+	omp_set_num_threads(4);
+	kmerhash* hashptr=&m_sequencehash_zip;
+	readbuf* bufferptr=&m_buffer;
+	kint sizevec=m_kmer_size;
+	size_t i;
+	#pragma omp for schedule(dynamic)
+	for (i=0; i<1000;++i)
+	{
+		#pragma omp atomic
+		++(*hashptr)[_hash((*bufferptr)[i],sizevec)];
+	}
+
+}
+void KMER_BASE::Init(bool parallel)
+{
+	m_sequencehash_zip.rehash(HASHSIZE);
+	this->FileParser(m_fastq_file);
+
+}
 //starts up the map and result vector(histogram winners)
 void KMER_BASE::Init(void)
 {
@@ -187,7 +243,10 @@ void KMER_BASE::FindTopN()
 };
 void KMER_BASE::Begin()
 {
-	this->Init();
+	if(!m_parallel)
+		this->Init();
+	else
+		this->Init(m_parallel);
 	this->FindTopN();
 }
 void KMER_BASE::PrintStats(clock_t _begin, clock_t _end)
