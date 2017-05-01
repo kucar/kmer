@@ -1,18 +1,16 @@
 #ifndef KMER_HASH_H
 #define KMER_HASH_H
 
+#include "bloom_filter.hpp"
 #include <unordered_map>
+#include <map>
 #include <vector>
 #include <string>
 
-
-
-//#define HASHSIZE (((1<<25)<<25)<<25)
-
+#define UNIQUE 1
 typedef  unsigned int kint;
 typedef std::pair<std::string,kint>  kmer_entry;
-
-#define SIZE_LINE 100
+typedef std::pair<unsigned long long, kint> kmer_entry_zip;
 
 
 //Base class holds basic attributes for kmer processing.
@@ -27,25 +25,33 @@ typedef std::pair<std::string,kint>  kmer_entry;
 class KMER_BASE 
 {
 public:
-	explicit KMER_BASE(std::string & filename,kint topcount,bool linesizestatic,kint kmersize, bool stats):
+	explicit KMER_BASE(std::string & filename,kint topcount,kint kmersize, bool stats,bool bloom):
 		m_fastq_file(filename),
 		m_topcount(topcount),
-		m_line_size_static(linesizestatic),
-		m_kmer_size(kmersize),m_stats(stats){};
+		m_kmer_size(kmersize),
+		m_stats(stats),
+		m_bloom(bloom),
+		m_shrink_cnt(0){};
 	virtual ~KMER_BASE();
 	virtual void Begin(void);
 	virtual void Init(void);
 	virtual void FindTopN(void);
 	virtual void PrintStats(clock_t , clock_t );
+	virtual void ClearSequenceHash(void);
+	virtual void ClearTopVector(void);
+	virtual void ShrinkHash(void);
+	virtual void BloomInit(void);
+	virtual void Bloomify(std::string& ,unsigned int);
 protected:
 	std::string m_fastq_file;
 	kint m_topcount;
-	bool m_line_size_static;
 	kint m_kmer_size;
 	bool m_stats=false;
-	std::vector<kmer_entry> m_topNvector;
-	std::unordered_map <std::string,kint> m_sequencehash;
-
+	std::vector<kmer_entry_zip> m_topNvector_zip;
+	std::unordered_map<unsigned long long,kint> m_sequencehash_zip;
+	bool m_bloom;
+	bloom_filter m_bloom_filter;
+	kint m_shrink_cnt;
 };
 
 

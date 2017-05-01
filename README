@@ -14,7 +14,7 @@ configuration & installation
 
 sample output
 =============================
-kucar@kucar-makine:~/workspace/SBStask$ ./SBStask --filename kmer.fastq --kmersize 30 --topcount 15 --stats --linesizestatic
+kucar@kucar-makine:~/workspace/SBStask$ ./SBStask --filename kmer.fastq --kmersize 30 --topcount 25 --stats 
 { TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT, 300}
 { AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA, 219}
 { ACACACACACACACACACACACACACACAC, 152}

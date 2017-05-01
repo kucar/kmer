@@ -1,5 +1,5 @@
 /* Task : K-mer counting
- * Algorithm: each k-mer of size "kmersize" hashed into a STL map
+ * Algorithm: each k-mer of size "kmersize" hashed into a STL hash map
  * Detail   : Input argument "filename" will be modified as only
  * 			  2nd lines of each entry will be placed on the file. File process
  * 			  handled by seperate sed command by system call.Then it is read sequentially
@@ -43,9 +43,7 @@ int kmersize=30;   				//default
 int topcount=25;  		   		//default
 std::string filename="";
 bool stats=false;			   //print stats
-bool linesizestatic=false;     //each line lenth is constant (90) or not
-
-
+bool bloom= false;
 
 
 void PrintUsage()
@@ -64,6 +62,8 @@ int ArgParse(int argc, char *argv[])
 			{"stats", 			no_argument,	    0,  's' },
 			{"linesizestatic",  no_argument,	    0,  'l' },
 			{"help", 			no_argument,	    0,  'h' },
+			{"fp",	 			no_argument,	    0,  'p' },
+			{"fn", 				no_argument,	    0,  'n' },
 			{0,           		0,                  0,  0   }
 	};
 
@@ -83,8 +83,8 @@ int ArgParse(int argc, char *argv[])
 		case 's' :
 			stats = true;
 			break;
-		case 'l' :
-			linesizestatic = true;
+		case 'p' :
+			bloom = true;
 			break;
 		default:
 			PrintUsage();
@@ -95,7 +95,6 @@ int ArgParse(int argc, char *argv[])
 		PrintUsage();
 		exit(PROCESS_ERROR);
 	}
-
 	return 0;
 }
 
@@ -103,12 +102,14 @@ int ArgParse(int argc, char *argv[])
 int main(int argc, char *argv[]) {
 
 	ArgParse(argc,argv);
-	std::shared_ptr<KMER_BASE> kmerobj (new KMER_BASE(filename,topcount,linesizestatic,kmersize,stats));
-	clock_t begin = clock();
+	std::shared_ptr<KMER_BASE> kmerobj (new KMER_BASE(filename,topcount,kmersize,stats,bloom));
+	volatile clock_t begin = clock();
 	kmerobj->Begin();
-	clock_t end = clock();
+	volatile clock_t end = clock();
 	if(stats)
 		kmerobj->PrintStats(begin,end);
 	return SUCCESS;
 
 }
+
+
