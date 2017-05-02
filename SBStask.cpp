@@ -43,7 +43,7 @@ int kmersize(30);   				//default
 int topcount(25);  		   		//default
 std::string filename="";
 bool stats=false;			   //print stats
-bool bloom= false;
+filter_t filter = shrink;		//default filter
 bool parallel=false;
 int  ram(3);					//default ram 3gb
 
@@ -95,7 +95,7 @@ int ArgParse(int argc, char *argv[])
 			stats = true;
 			break;
 		case 'p' :
-			bloom = true;
+			filter = bloom;
 			break;
 		case 'm' :
 			parallel = true;
@@ -119,7 +119,7 @@ int ArgParse(int argc, char *argv[])
 int main(int argc, char *argv[]) {
 
 	ArgParse(argc,argv);
-	std::shared_ptr<KMER_BASE> kmerobj (new KMER_BASE(filename,topcount,kmersize,stats,bloom,parallel,ram));
+	std::shared_ptr<KMER_BASE> kmerobj (new KMER_BASE(filename,topcount,kmersize,stats,filter,parallel,ram));
 	volatile clock_t begin = clock();
 	kmerobj->Begin();
 	volatile clock_t end = clock();

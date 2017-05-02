@@ -15,8 +15,7 @@
 #define NUMLINES_ENTRY 4
 #define VALID_ENTRY    2
 #define HASHSIZE  (1ULL<<25)
-#define HASHSZ_THRESHOLD_PER_SHRINK 250000
-
+#define HASHSZ_THRESHOLD_PER_SHRINK 10000000
 
 inline uint32_t tune_hashsize(int xgbram)  {
 	return (xgbram>=16)? HASHSIZE<<3 : (xgbram>=8) ? HASHSIZE<<2 : (xgbram>=4) ? HASHSIZE<<1 : HASHSIZE ;
@@ -26,6 +25,11 @@ inline int getMappedCode(nucleotideCode_t n) {
 }
 inline char getRevMappedCode(int n){
 	return indexRevMapper[n];
+}
+
+inline bool IsValidLine(kint line_num)
+{
+	return (line_num % NUMLINES_ENTRY == VALID_ENTRY);
 }
 
 // largest number we're going to hash into. (8 bytes/64 bits/32 nt)
@@ -52,7 +56,6 @@ inline HashIntoType _hash(const char * kmer, const WordLength k,
 
     HashIntoType h = 0;
 
-//    h |= twobit_repr(kmer[0]);
       h |=getMappedCode((nucleotideCode_t)kmer[0]);
 
     for (WordLength i = 1; i < k; i++) {
@@ -63,22 +66,10 @@ inline HashIntoType _hash(const char * kmer, const WordLength k,
     return h;
 }
 
-// _hash: return the maximum of the forward and reverse hash.
-
 inline HashIntoType _hash(const char * kmer, const WordLength k)
 {
     HashIntoType h = 0;
     return _hash(kmer, k, h);
-}
-
-// _hash_forward: return the hash from the forward direction only.
-
-inline HashIntoType _hash_forward(const char * kmer, WordLength k)
-{
-    HashIntoType h = 0;
- 
-    _hash(kmer, k, h);
-    return h;			// return forward only
 }
 
 inline HashIntoType _hash(const std::string kmer, const WordLength k)
@@ -109,6 +100,7 @@ std::string _revhash(HashIntoType hash, WordLength k)
 
     return s;
 }
+
 
 KMER_BASE::~KMER_BASE(){};
 void KMER_BASE::FileParser(std::string& _fastqfile)
@@ -169,41 +161,21 @@ void KMER_BASE::Init(bool parallel)
 //starts up the map and result vector(histogram winners)
 void KMER_BASE::Init(void)
 {
-	unsigned int shrink_threshold=HASHSZ_THRESHOLD_PER_SHRINK;
 	m_sequencehash_zip.rehash(tune_hashsize(m_ram));
+	kint limit;
 	std::string line;
-	std::string subs;
 	std::ifstream myfile (m_fastq_file);
 	kint linenum =0 ;
-	if(m_bloom)
+	if(m_filtertyp==bloom)
 		BloomInit();
 	if (myfile.is_open())
 	{
 		while(getline(myfile,line))
 		{
-			if(++linenum % NUMLINES_ENTRY == VALID_ENTRY) //process sequence
+			if (++linenum % NUMLINES_ENTRY == VALID_ENTRY)  //process sequence
 			{
-				unsigned int limit=line.length()-m_kmer_size;
-				if (m_bloom)
-				{
-					Bloomify(line,limit);
-				}
-				else
-				{
-					for ( unsigned int index=0; index<=limit;  ++index)
-					{
-						subs=line.substr(index,m_kmer_size);
-						++m_sequencehash_zip[_hash(subs, m_kmer_size)];
-					}
-				}
+				(this->*m_filter_ptr_arr[m_filtertyp])(line,line.length()-m_kmer_size);
 			}
-			if(!m_bloom)
-				if(m_sequencehash_zip.size()>shrink_threshold)
-				{
-					ShrinkHash();
-					++m_shrink_cnt;
-					shrink_threshold+=HASHSZ_THRESHOLD_PER_SHRINK;
-				}
 		}
 		myfile.close();
 	}
@@ -234,7 +206,7 @@ void KMER_BASE::FindTopN()
 	std::partial_sort_copy(m_sequencehash_zip.begin(), m_sequencehash_zip.end(),m_topNvector_zip.begin(),m_topNvector_zip.end(),
 			[](kmer_entry_zip const& l, kmer_entry_zip const& r)
 					{	return l.second > r.second;	});
-	if(!m_bloom)
+	if(m_filtertyp==shrink)
 		for (auto it:m_topNvector_zip)
 		{
 			std::cout<<_revhash(it.first,m_kmer_size)<<"---"<<
@@ -246,7 +218,7 @@ void KMER_BASE::FindTopN()
 			std::cout << _revhash(it.first,m_kmer_size)<<"---"<<it.second<<std::endl;
 	volatile clock_t end = clock();
 	double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
-	std::cout<<"elapsed sec for fındTopN:"<<elapsed_secs<<std::endl;
+	std::cout<<"elapsed sec for findTopN:"<<elapsed_secs<<std::endl;
 
 
 };
@@ -264,9 +236,9 @@ void KMER_BASE::PrintStats(clock_t _begin, clock_t _end)
 	std::cout << "load_factor = " << m_sequencehash_zip.load_factor() << std::endl;
 	double elapsed_secs = double(_end - _begin) / CLOCKS_PER_SEC;
 	std::cout<<"top vector size: "<<m_topNvector_zip.size()<<std::endl;
-	std::cout<<"shrink :"<<!m_bloom<<std::endl;
-	std::cout<<"bloom : "<<m_bloom<<std::endl;
-	if (m_bloom)
+	std::cout<<"shrink :"<<!(m_filtertyp==bloom)<<std::endl;
+	std::cout<<"bloom : "<<(m_filtertyp==bloom)<<std::endl;
+	if(m_filtertyp==bloom)
 	{
 		std::cout<<"effective false positive (bloom) "<<m_bloom_filter.effective_fpp()<<std::endl;
 	}
@@ -279,7 +251,7 @@ void KMER_BASE::PrintStats(clock_t _begin, clock_t _end)
 	std::cout<<"elapsed sec before destructor operation:"<<elapsed_secs<<std::endl;
 }
 
-void KMER_BASE::ShrinkHash(void)
+inline void KMER_BASE::ShrinkHash(void)
 {
 	for (auto it=m_sequencehash_zip.begin();it!=m_sequencehash_zip.end();)
 	{
@@ -289,6 +261,22 @@ void KMER_BASE::ShrinkHash(void)
 		}
 		else 
 			it++;
+	}
+}
+inline void KMER_BASE::Shrink_Insert(std::string& _line,unsigned int _limit)
+{
+	std::string subs;
+	unsigned int shrink_threshold=HASHSZ_THRESHOLD_PER_SHRINK;
+	for ( unsigned int index=0; index<=_limit;  ++index)
+	{
+		subs=_line.substr(index,m_kmer_size);
+		++m_sequencehash_zip[_hash(subs, m_kmer_size)];
+	}
+	if( m_sequencehash_zip.size()>=shrink_threshold )
+	{
+		ShrinkHash();
+		++m_shrink_cnt;
+		shrink_threshold+=HASHSZ_THRESHOLD_PER_SHRINK;
 	}
 }
 void KMER_BASE::BloomInit(void)
@@ -302,7 +290,7 @@ void KMER_BASE::BloomInit(void)
 	m_bloom_filter=filter;
 	return;
 }
-void KMER_BASE::Bloomify(std::string& _line,unsigned int _limit)
+void KMER_BASE::Bloom_Insert(std::string& _line,unsigned int _limit)
 {
 	for ( unsigned int index=0; index<=_limit;  ++index)
 	{
