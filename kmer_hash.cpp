@@ -18,6 +18,9 @@
 #define HASHSZ_THRESHOLD_PER_SHRINK 250000
 
 
+inline uint32_t tune_hashsize(int xgbram)  {
+	return (xgbram>=16)? HASHSIZE<<3 : (xgbram>=8) ? HASHSIZE<<2 : (xgbram>=4) ? HASHSIZE<<1 : HASHSIZE ;
+}
 inline int getMappedCode(nucleotideCode_t n) {
 	return indexMapper[n];
 }
@@ -34,7 +37,7 @@ typedef unsigned char WordLength;
 
 
 
-HashIntoType _hash(const char * kmer, const WordLength k,
+inline HashIntoType _hash(const char * kmer, const WordLength k,
                    HashIntoType& _h)
 {
     // sizeof(HashIntoType) * 8 bits / 2 bits/base
@@ -62,7 +65,7 @@ HashIntoType _hash(const char * kmer, const WordLength k,
 
 // _hash: return the maximum of the forward and reverse hash.
 
-HashIntoType _hash(const char * kmer, const WordLength k)
+inline HashIntoType _hash(const char * kmer, const WordLength k)
 {
     HashIntoType h = 0;
     return _hash(kmer, k, h);
@@ -70,7 +73,7 @@ HashIntoType _hash(const char * kmer, const WordLength k)
 
 // _hash_forward: return the hash from the forward direction only.
 
-HashIntoType _hash_forward(const char * kmer, WordLength k)
+inline HashIntoType _hash_forward(const char * kmer, WordLength k)
 {
     HashIntoType h = 0;
  
@@ -78,12 +81,12 @@ HashIntoType _hash_forward(const char * kmer, WordLength k)
     return h;			// return forward only
 }
 
-HashIntoType _hash(const std::string kmer, const WordLength k)
+inline HashIntoType _hash(const std::string kmer, const WordLength k)
 {
     return _hash(kmer.c_str(), k);
 }
 
-HashIntoType _hash(const std::string kmer, const WordLength k,
+inline HashIntoType _hash(const std::string kmer, const WordLength k,
                    HashIntoType& h)
 {
     return _hash(kmer.c_str(), k, h);
@@ -115,7 +118,7 @@ void KMER_BASE::FileParser(std::string& _fastqfile)
 	std::string line;
 	std::string subs;
 	unsigned int limit(0);
-	m_buffer.reserve(1000);
+	m_buffer.reserve(SEQ_READ_BUFFER);
 	if (myfile.is_open())
 	{
 		while(getline(myfile,line))
@@ -126,7 +129,7 @@ void KMER_BASE::FileParser(std::string& _fastqfile)
 
 				for ( unsigned int index=0; index<=limit;  ++index)
 				{
-					if(m_buffer.size()==1000)
+					if(m_buffer.size()==SEQ_READ_BUFFER)
 					{
 						this->ProcessBuffer();
 						m_buffer.clear();
@@ -149,13 +152,13 @@ void KMER_BASE::ProcessBuffer(void)
 	readbuf* bufferptr=&m_buffer;
 	kint sizevec=m_kmer_size;
 	size_t i;
-	#pragma omp for schedule(dynamic)
-	for (i=0; i<1000;++i)
+	std::vector<HashIntoType> kmerinbits_vec;
+	#pragma omp parallel for 
+	for (i=0; i<SEQ_READ_BUFFER;++i)
 	{
-		#pragma omp atomic
 		++(*hashptr)[_hash((*bufferptr)[i],sizevec)];
-	}
 
+	}
 }
 void KMER_BASE::Init(bool parallel)
 {
@@ -167,7 +170,7 @@ void KMER_BASE::Init(bool parallel)
 void KMER_BASE::Init(void)
 {
 	unsigned int shrink_threshold=HASHSZ_THRESHOLD_PER_SHRINK;
-	m_sequencehash_zip.rehash(HASHSIZE);
+	m_sequencehash_zip.rehash(tune_hashsize(m_ram));
 	std::string line;
 	std::string subs;
 	std::ifstream myfile (m_fastq_file);
@@ -226,6 +229,7 @@ void KMER_BASE::ClearTopVector()
 
 void KMER_BASE::FindTopN()
 {
+	volatile clock_t begin = clock();
 	m_topNvector_zip.resize(m_topcount);
 	std::partial_sort_copy(m_sequencehash_zip.begin(), m_sequencehash_zip.end(),m_topNvector_zip.begin(),m_topNvector_zip.end(),
 			[](kmer_entry_zip const& l, kmer_entry_zip const& r)
@@ -240,6 +244,11 @@ void KMER_BASE::FindTopN()
 	else
 		for (auto it:m_topNvector_zip)
 			std::cout << _revhash(it.first,m_kmer_size)<<"---"<<it.second<<std::endl;
+	volatile clock_t end = clock();
+	double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
+	std::cout<<"elapsed sec for fındTopN:"<<elapsed_secs<<std::endl;
+
+
 };
 void KMER_BASE::Begin()
 {

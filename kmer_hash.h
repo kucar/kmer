@@ -8,6 +8,7 @@
 #include <string>
 
 #define UNIQUE 1
+#define SEQ_READ_BUFFER 10000
 typedef  unsigned int kint;
 typedef std::pair<std::string,kint>  kmer_entry;
 typedef std::pair<unsigned long long, kint> kmer_entry_zip;
@@ -27,14 +28,15 @@ typedef std::unordered_map<unsigned long long,kint> kmerhash;
 class KMER_BASE 
 {
 public:
-	explicit KMER_BASE(std::string & filename,kint topcount,kint kmersize, bool stats,bool bloom,bool parallel):
+	explicit KMER_BASE(std::string & filename,kint topcount,kint kmersize, bool stats,bool bloom,bool parallel,int ram):
 		m_fastq_file(filename),
 		m_topcount(topcount),
 		m_kmer_size(kmersize),
 		m_stats(stats),
 		m_bloom(bloom),
 		m_shrink_cnt(0),
-		m_parallel(parallel){};
+		m_parallel(parallel),
+		m_ram(ram){};
 	virtual ~KMER_BASE();
 	virtual void Begin(void);
 	virtual void Init(void);
@@ -60,6 +62,7 @@ protected:
 	kint m_shrink_cnt;
 	readbuf m_buffer;
 	bool m_parallel;
+	int m_ram;
 };
 
 

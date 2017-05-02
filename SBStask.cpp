@@ -39,17 +39,25 @@ using namespace std;
 
 //globals for main program arguments
 
-int kmersize=30;   				//default
-int topcount=25;  		   		//default
+int kmersize(30);   				//default
+int topcount(25);  		   		//default
 std::string filename="";
 bool stats=false;			   //print stats
 bool bloom= false;
 bool parallel=false;
+int  ram(3);					//default ram 3gb
 
 
 void PrintUsage()
 {
-	cout<<"Usage: SBStask --filename <FILENAME> --kmersize <KMERSZ> --topcount <TOPN> [--stats --linesizestatic]\n"<<endl;
+	cout<<"Usage: SBStask --filename <FILENAME> --kmersize <KMERSZ> --topcount <TOPN> [--stats --fp --multi]\n"<<endl;
+	cout<<"--filename :<string>path of the fastq file"<<endl;
+	cout<<"--kmersize :<integer>size of kmer [1-31]"<<endl;
+	cout<<"--topcount :<integer>top N kmers mostly observed"<<endl;
+	cout<<"other options:"<<endl;
+	cout<<"--stats : display information about hash infrastructure"<<endl;
+	cout<<"--fp    : apply bloom filter"<<endl;
+	cout<<"--multi : apply multiple threading"<<endl;
 
 }
 
@@ -66,6 +74,7 @@ int ArgParse(int argc, char *argv[])
 			{"fp",	 			no_argument,	    0,  'p' },
 			{"fn", 				no_argument,	    0,  'n' },
 			{"multi", 			no_argument,	    0,  'm' },
+			{"ram", 			required_argument,	0,  'r' },
 			{0,           		0,                  0,  0   }
 	};
 
@@ -91,6 +100,9 @@ int ArgParse(int argc, char *argv[])
 		case 'm' :
 			parallel = true;
 			break;
+		case 'r' :
+			ram = stoi(optarg);
+			break;
 		default:
 			PrintUsage();
 			exit(PROCESS_ERROR);
@@ -107,7 +119,7 @@ int ArgParse(int argc, char *argv[])
 int main(int argc, char *argv[]) {
 
 	ArgParse(argc,argv);
-	std::shared_ptr<KMER_BASE> kmerobj (new KMER_BASE(filename,topcount,kmersize,stats,bloom,parallel));
+	std::shared_ptr<KMER_BASE> kmerobj (new KMER_BASE(filename,topcount,kmersize,stats,bloom,parallel,ram));
 	volatile clock_t begin = clock();
 	kmerobj->Begin();
 	volatile clock_t end = clock();
