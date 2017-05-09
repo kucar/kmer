@@ -22,7 +22,9 @@
  *Author : Korcan Ucar korcanucar@gmail.com
  *
  * */
+
 #include "kmer_hash.h"
+#include "file_op.h"
 #include <iostream>
 #include <unordered_map>
 #include <vector>
@@ -40,24 +42,24 @@ using namespace std;
 //globals for main program arguments
 
 int kmersize(30);   				//default
-int topcount(25);  		   		//default
+int topcount(25);  		   		    //default
 std::string filename="";
-bool stats=false;			   //print stats
-filter_t filter = shrink;		//default filter
+bool stats=false;			        //print stats
+filter_t filter = shrink;		    //default
 bool parallel=false;
-int  ram(3);					//default ram 3gb
+int  ram(3);					    //default ram 3gb
 
 
 void PrintUsage()
 {
-	cout<<"Usage: SBStask --filename <FILENAME> --kmersize <KMERSZ> --topcount <TOPN> [--stats --fp --multi]\n"<<endl;
-	cout<<"--filename :<string>path of the fastq file"<<endl;
-	cout<<"--kmersize :<integer>size of kmer [1-31]"<<endl;
-	cout<<"--topcount :<integer>top N kmers mostly observed"<<endl;
-	cout<<"other options:"<<endl;
-	cout<<"--stats : display information about hash infrastructure"<<endl;
-	cout<<"--fp    : apply bloom filter"<<endl;
-	cout<<"--multi : apply multiple threading"<<endl;
+	cout<<"Usage: SBStask --filename <FILENAME> --kmersize <[1-31]]> --topcount <int> [--stats --[fp/nofilter] ]\n"<<endl;
+	cout<<"--filename       :<string>path of the fastq file"<<endl;
+	cout<<"--kmersize       :<integer>size of kmer [1-31]"<<endl;
+	cout<<"--topcount       :<integer>top N kmers mostly observed"<<endl;
+	cout<<"other options    :"<<endl;
+	cout<<"--stats          : display information about hash infrastructure"<<endl;
+	cout<<"--fp             : apply bloom filter"<<endl;
+	cout<<"--no filter      : apply no filter"<<endl;
 
 }
 
@@ -73,7 +75,7 @@ int ArgParse(int argc, char *argv[])
 			{"help", 			no_argument,	    0,  'h' },
 			{"fp",	 			no_argument,	    0,  'p' },
 			{"fn", 				no_argument,	    0,  'n' },
-			{"multi", 			no_argument,	    0,  'm' },
+			{"no filter", 		required_argument,	0,  'x' },
 			{"ram", 			required_argument,	0,  'r' },
 			{0,           		0,                  0,  0   }
 	};
@@ -97,8 +99,8 @@ int ArgParse(int argc, char *argv[])
 		case 'p' :
 			filter = bloom;
 			break;
-		case 'm' :
-			parallel = true;
+		case 'x':
+			filter= nofilter;
 			break;
 		case 'r' :
 			ram = stoi(optarg);
@@ -112,6 +114,7 @@ int ArgParse(int argc, char *argv[])
 		PrintUsage();
 		exit(PROCESS_ERROR);
 	}
+
 	return 0;
 }
 
@@ -119,7 +122,11 @@ int ArgParse(int argc, char *argv[])
 int main(int argc, char *argv[]) {
 
 	ArgParse(argc,argv);
-	std::shared_ptr<KMER_BASE> kmerobj (new KMER_BASE(filename,topcount,kmersize,stats,filter,parallel,ram));
+	unsigned int line_length;
+	unsigned long long filesize=getFileSize(filename,line_length);
+	unsigned long long linenum = estimate_line_num(filesize);
+	unsigned long long est_inst= estimate_insertions(linenum,line_length,kmersize);
+	std::shared_ptr<KMER_COUNTER> kmerobj (new KMER_COUNTER(filename,topcount,kmersize,stats,filter,ram,est_inst,line_length));
 	volatile clock_t begin = clock();
 	kmerobj->Begin();
 	volatile clock_t end = clock();

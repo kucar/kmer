@@ -8,9 +8,6 @@
 #ifndef NUCLEOTIDE_DEFS_H_
 #define NUCLEOTIDE_DEFS_H_
 
-#include <string>
-#include <iostream>
-
 enum nucleotideCode_t {
 	A = 'A',
 	C = 'C',
