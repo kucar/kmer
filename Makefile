@@ -1,6 +1,6 @@
-CXXFLAGS =	-fopenmp -O3 -g -Wall -fmessage-length=0 -std=c++11 -Wno-unused-variable
+CXXFLAGS =	-fopenmp -O3 -g -Wall -fmessage-length=0 -std=c++11 -Wno-unused-variable -DDEBUG_M
 
-OBJS =		SBStask.o kmer_hash.o file_op.o
+OBJS =		SBStask.o kmer_hash.o
 LIBS =
 
 TARGET =	SBStask

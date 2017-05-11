@@ -126,7 +126,9 @@ int main(int argc, char *argv[]) {
 	unsigned long long filesize=getFileSize(filename,line_length);
 	unsigned long long linenum = estimate_line_num(filesize);
 	unsigned long long est_inst= estimate_insertions(linenum,line_length,kmersize);
-	std::shared_ptr<KMER_COUNTER> kmerobj (new KMER_COUNTER(filename,topcount,kmersize,stats,filter,ram,est_inst,line_length));
+	std::shared_ptr<KMER_COUNTER> kmerobj (new KMER_COUNTER(filename,topcount,
+															kmersize,stats,filter,
+															ram,est_inst,line_length));
 	volatile clock_t begin = clock();
 	kmerobj->Begin();
 	volatile clock_t end = clock();

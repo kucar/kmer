@@ -10,7 +10,7 @@
 #define SEQ_READ_BUFFER 10000
 #define NUMLINES_ENTRY 4
 #define VALID_ENTRY    2
-#define SAMPLE_FILE_SIZE 47363704
+#define SAMPLE_FILE_SIZE 47363704  //sample file 47 mb
 #define SAMPLE_FILE_LINENUMBER 799440
 #define HASHSIZE  (1ULL<<25)
 //hash size threshold per shrink
@@ -19,7 +19,7 @@
 
 
 typedef unsigned long long int u_32bits;
-typedef unsigned char uch;
+typedef unsigned char uchar;
 class KMER_COUNTER;
 typedef  unsigned int kint;
 typedef std::pair<std::string,kint>  kmer_entry;
@@ -38,15 +38,22 @@ enum filter_t {
 //Example :
 //std::shared_ptr<KMER_COUNTER> kmerobj
 //									(new KMER_COUNTER(filename,
-//													topcount,
-//													kmersize,
-//													filtertyp,
-//													stats));
+//													 topcount,
+//													 kmersize,
+//													 stats,
+//													 filtertype,
+//													 ram
+//													 expected_number_insertions,
+//                                                   nucleotide_line_length_infile
+//												     ));
 class KMER_COUNTER 
 {
 public:
 
-	explicit KMER_COUNTER(std::string & filename,kint topcount,kint kmersize, bool stats,filter_t filter,int ram,unsigned long long num_insertions,unsigned int linelength):
+	explicit KMER_COUNTER(std::string & filename,kint topcount,
+						  kint kmersize, bool stats,
+						  filter_t filter,int ram,
+						  unsigned long long num_insertions,unsigned int linelength):
 		m_fastq_file(filename),
 		m_topcount(topcount),
 		m_kmer_size(kmersize),
