@@ -41,15 +41,15 @@ using namespace std;
 
 //globals for main program arguments
 
-int kmersize(30);   				//default
-int topcount(25);  		   		    //default
+kmer_int kmersize(30);   				//default
+kmer_int topcount(25);  		   		    //default
 std::string filename="";
 bool stats=false;			        //print stats
 filter_t filter = shrink;		    //default
 
 memusage_map_t memusg_map {{"min",minn},{"low",low},{"medium",medium},{"high",high},{"max",maxx}};
 
-int  mem_usage(high);				//we all love speed
+mem_usage_t  mem_usage(high);				//we all love speed
 
 
 void PrintUsage()
@@ -88,7 +88,7 @@ int ArgParse(int argc, char *argv[])
 	};
 
 	int long_index =0;
-	while ((opt = getopt_long(argc, argv,"ktsl:f:",
+	while ((opt = getopt_long(argc, argv,"ktspxr:f:",
 			long_options, &long_index )) != -1) {
 		switch (opt) {
 		case 'k' :
@@ -111,7 +111,6 @@ int ArgParse(int argc, char *argv[])
 			break;
 		case 'r' :
 			mem_usage=memusg_map[std::string(optarg)];
-			cout<<"mem usage:"<<mem_usage<<endl;
 			break;
 		default:
 			PrintUsage();
@@ -123,7 +122,7 @@ int ArgParse(int argc, char *argv[])
 		exit(PROCESS_ERROR);
 	}
 	if(mem_usage==0){
-		cout<<"mem_usage is not defined (use max||high||medium||low||min)"<<endl;
+		cout<<"mem_usage value is not defined (use max||high||medium||low||min)"<<endl;
 		PrintUsage();
 		exit(PROCESS_ERROR);
 	}

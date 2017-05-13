@@ -10,10 +10,8 @@
 #include <string.h>
 #include <omp.h>
 
-//predefined hash size
-#define HASHSIZE  (1ULL<<25)
-//predefined hash size threshold per shrink
-#define THRES_PER_SHR ((HASHSIZE>>2)+(HASHSIZE>>4)) //(10*1024*1024)
+//predefined hash map load factor threshold per shrink
+loadfactor_thr_t loadfactor_thr={{minn,0.20},{low,0.25},{medium,0.30},{high,0.35},{maxx,0.40}};
 
 
 inline uint32_t tune_shrink_threshold(int memusg)  {
@@ -37,10 +35,10 @@ inline char getRevMappedCode(int n){
 	return indexRevMapper[n];
 }
 
-inline u_32bits char2bit(const char * kmer, const uchar k,u_32bits& charsinbits )
+inline u_64bits char2bit(const char * kmer, const uchar k,u_64bits& charsinbits )
 {
 
-    u_32bits bits = 0;
+    u_64bits bits = 0;
     bits |=getMappedCode((nucleotideCode_t)kmer[0]);
 
     for (uchar i = 1; i < k; i++) {
@@ -51,22 +49,22 @@ inline u_32bits char2bit(const char * kmer, const uchar k,u_32bits& charsinbits 
     return charsinbits;
 }
 
-inline u_32bits char2bit(const char * kmer, const uchar k)
+inline u_64bits char2bit(const char * kmer, const uchar k)
 {
-    u_32bits h = 0;
+    u_64bits h = 0;
     return char2bit(kmer, k, h);
 }
 
-inline u_32bits char2bit(const std::string kmer, const uchar k)
+inline u_64bits char2bit(const std::string kmer, const uchar k)
 {
     return char2bit(kmer.c_str(), k);
 }
 
-std::string bit2str(u_32bits charsinbits, uchar k)
+std::string bit2str(u_64bits charsinbits, uchar k)
 {
     std::string s = "";
 
-    unsigned int val = charsinbits & 3;
+    kmer_int val = charsinbits & 3;
       s+=getRevMappedCode(val);
 
     for (uchar i = 1; i < k; i++) {
@@ -105,12 +103,12 @@ KMER_COUNTER& KMER_COUNTER::operator=(KMER_COUNTER&& other)
 		other.m_empty=true;
 	}
 	return *this;
-
-
 }
+
 KMER_COUNTER::~KMER_COUNTER(){};
 
-//starts up the map and result vector(histogram winners)
+//process the file and call filter method
+//and accumulate the hash.
 void KMER_COUNTER::Init(void)
 {
 	uint32_t sz=tune_hashsize(m_memusg);
@@ -118,7 +116,7 @@ void KMER_COUNTER::Init(void)
 									m_estimated_insertions : sz);
 	std::string line;
 	std::ifstream myfile (m_fastq_file);
-	kint linenum(0) ;
+	kmer_int linenum(0) ;
 	auto limit= m_linelength - m_kmer_size;
 	if(m_filtertyp==bloom)
 		BloomInit();
@@ -237,7 +235,7 @@ inline void KMER_COUNTER::Shrink_Insert(std::string& _line,unsigned int _limit)
 		subs=_line.substr(index,m_kmer_size);
 		++m_sequencehash_zip[char2bit(subs, m_kmer_size)];
 	}
-	if( m_sequencehash_zip.size()>=shrink_threshold /*|| m_sequencehash_zip.load_factor()>0.25*/ )
+	if( m_sequencehash_zip.size()>=shrink_threshold || m_sequencehash_zip.load_factor()>loadfactor_thr[m_memusg] )
 	{
 		ShrinkHash();
 		++m_shrink_cnt;
