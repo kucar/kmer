@@ -10,26 +10,25 @@
 #include <string.h>
 #include <omp.h>
 
-
+//predefined hash size
 #define HASHSIZE  (1ULL<<25)
-//hash size threshold per shrink
-#define THRES_PER_SHR ((HASHSIZE>>2)+(HASHSIZE>>4)) //(10*(1ULL<<20))
-#define CALLFILTERFUNC(x,y) (this->*m_filter_ptr_arr[m_filtertyp])(x,y)
+//predefined hash size threshold per shrink
+#define THRES_PER_SHR ((HASHSIZE>>2)+(HASHSIZE>>4)) //(10*1024*1024)
 
 
-inline uint32_t tune_shrink_threshold(int xgbram)  {
-	return (xgbram>=16)?
-			THRES_PER_SHR<<3 : (xgbram>=8) ?
-					THRES_PER_SHR<<2 : (xgbram>=4) ?
-							THRES_PER_SHR<<1 : THRES_PER_SHR ;
+inline uint32_t tune_shrink_threshold(int memusg)  {
+	return (memusg==maxx)    ? THRES_PER_SHR<<6 :
+		   (memusg==high)   ?  THRES_PER_SHR<<4 :
+		   (memusg==medium) ?  THRES_PER_SHR<<2 :
+		   (memusg==low)    ?  THRES_PER_SHR<<1 : THRES_PER_SHR ;
 }
 
-inline uint32_t tune_hashsize(int xgbram)
+inline uint32_t tune_hashsize(int memusg)
 {
-	return  (xgbram>=16)?
-			HASHSIZE<<3 : (xgbram>=8) ?
-					HASHSIZE<<2 : (xgbram>=4) ?
-							HASHSIZE<<1 : HASHSIZE ;
+	return  (memusg==maxx)   ?  HASHSIZE<<6 :
+			(memusg==high)   ?	HASHSIZE<<4 :
+			(memusg==medium) ?	HASHSIZE<<2 :
+			(memusg==low)    ? 	HASHSIZE<<1 : HASHSIZE ;
 }
 inline int getMappedCode(nucleotideCode_t n) {
 	return indexMapper[n];
@@ -41,15 +40,14 @@ inline char getRevMappedCode(int n){
 inline u_32bits char2bit(const char * kmer, const uchar k,u_32bits& charsinbits )
 {
 
-    u_32bits _charsinbits = 0;
-
-      _charsinbits |=getMappedCode((nucleotideCode_t)kmer[0]);
+    u_32bits bits = 0;
+    bits |=getMappedCode((nucleotideCode_t)kmer[0]);
 
     for (uchar i = 1; i < k; i++) {
-        _charsinbits = _charsinbits << 2;
-        _charsinbits |=getMappedCode((nucleotideCode_t)kmer[i]);
+        bits = bits << 2;
+        bits |=getMappedCode((nucleotideCode_t)kmer[i]);
     }
-    charsinbits = _charsinbits;
+    charsinbits = bits;
     return charsinbits;
 }
 
@@ -82,19 +80,46 @@ std::string bit2str(u_32bits charsinbits, uchar k)
     return s;
 }
 
+KMER_COUNTER& KMER_COUNTER::operator=(KMER_COUNTER&& other)
+{
+	if(this!=&other)
+	{
+		m_fastq_file=other.m_fastq_file;
+		m_topcount  =other.m_topcount;
+		m_kmer_size =other.m_kmer_size;
+		m_stats= other.m_stats;
+		m_topNvector_zip=other.m_topNvector_zip;
+		m_sequencehash_zip=other.m_sequencehash_zip;
+		m_filtertyp=other.m_filtertyp;
+		m_bloom_filter=other.m_bloom_filter;
+		m_shrink_cnt=other.m_shrink_cnt;
+		m_memusg = other.m_memusg;
+		m_filter_ptr_arr[0]=&KMER_COUNTER::Shrink_Insert;
+		m_filter_ptr_arr[1]=&KMER_COUNTER::Bloom_Insert;
+		m_filter_ptr_arr[2]=&KMER_COUNTER::Insert;
+		m_estimated_insertions=other.m_estimated_insertions;
+		m_linelength=other.m_linelength;
+		m_empty=false;
+		other.ClearSequenceHash();
+		other.ClearTopVector();
+		other.m_empty=true;
+	}
+	return *this;
 
+
+}
 KMER_COUNTER::~KMER_COUNTER(){};
 
 //starts up the map and result vector(histogram winners)
 void KMER_COUNTER::Init(void)
 {
-	uint32_t sz=tune_hashsize(m_ram);
-	m_sequencehash_zip.rehash((sz>m_estimated_insertions)? m_estimated_insertions : sz);
-	kint limit;
+	uint32_t sz=tune_hashsize(m_memusg);
+	m_sequencehash_zip.reserve((sz>m_estimated_insertions)?
+									m_estimated_insertions : sz);
 	std::string line;
 	std::ifstream myfile (m_fastq_file);
-	kint linenum =0 ;
-	auto linelength= m_linelength - m_kmer_size;
+	kint linenum(0) ;
+	auto limit= m_linelength - m_kmer_size;
 	if(m_filtertyp==bloom)
 		BloomInit();
 	if (myfile.is_open())
@@ -102,8 +127,8 @@ void KMER_COUNTER::Init(void)
 		while(getline(myfile,line))
 			if (++linenum % NUMLINES_ENTRY == VALID_ENTRY) 
 			{   //process the line, avoid cpu branching (if-else or switch-case)
-				//instead use func ptr for direct access.
-				(this->*m_filter_ptr_arr[m_filtertyp])(line,linelength);
+				//instead use func ptr for direct access to the destined filter method
+				(this->*m_filter_ptr_arr[m_filtertyp])(line,limit);
 			}
 		myfile.close();
 	}
@@ -117,12 +142,10 @@ void KMER_COUNTER::Init(void)
 void KMER_COUNTER::ClearSequenceHash()
 {
 	m_sequencehash_zip.clear();
-	m_sequencehash_zip.rehash(HASHSIZE);
 }
 void KMER_COUNTER::ClearTopVector()
 {
 	m_topNvector_zip.clear();
-	m_topNvector_zip.resize(m_topcount);
 }
 
 void KMER_COUNTER::FindTopN()
@@ -163,7 +186,7 @@ void KMER_COUNTER::PrintStats(clock_t _begin, clock_t _end)
 	else if (m_filtertyp==shrink)
 	{
 		std::cout<<"shrink count (false negatives) :"<<m_shrink_cnt<<std::endl;
-		std::cout<<"hash size per shrink threshold:"<<tune_shrink_threshold(m_ram)<<std::endl;
+		std::cout<<"hash size per shrink threshold:"<<tune_shrink_threshold(m_memusg)<<std::endl;
 		double max_fn_rate = 0 ; 
 		for (auto it: m_topNvector_zip)
 		{
@@ -182,6 +205,9 @@ void KMER_COUNTER::PrintStats(clock_t _begin, clock_t _end)
 /*TODO: this can be openmp-ed*/
 inline void KMER_COUNTER::ShrinkHash(void)
 {
+#ifdef DEBUG_M
+	volatile clock_t begin = clock();
+#endif
 	for (auto it=m_sequencehash_zip.begin();it!=m_sequencehash_zip.end();)
 	{
 		if(it->second==UNIQUE)
@@ -193,6 +219,11 @@ inline void KMER_COUNTER::ShrinkHash(void)
 			it++;
 		}
 	}
+#ifdef DEBUG_M
+	volatile clock_t end = clock();
+	double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
+	std::cout<<"elapsed sec for shrinkHash():"<<elapsed_secs<<std::endl;
+#endif
 			
 	}
 
@@ -200,13 +231,13 @@ inline void KMER_COUNTER::Shrink_Insert(std::string& _line,unsigned int _limit)
 {
 
 	std::string subs;
-	unsigned long long shrink_threshold=tune_shrink_threshold(m_ram);
+	unsigned long long shrink_threshold=tune_shrink_threshold(m_memusg);
 	for ( unsigned int index=0; index<=_limit;  ++index)
 	{
 		subs=_line.substr(index,m_kmer_size);
 		++m_sequencehash_zip[char2bit(subs, m_kmer_size)];
 	}
-	if( m_sequencehash_zip.size()>=shrink_threshold || m_sequencehash_zip.load_factor()>0.25 )
+	if( m_sequencehash_zip.size()>=shrink_threshold /*|| m_sequencehash_zip.load_factor()>0.25*/ )
 	{
 		ShrinkHash();
 		++m_shrink_cnt;

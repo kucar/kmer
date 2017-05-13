@@ -36,7 +36,7 @@
 
 using namespace std;
 
-#define SUCCESS 0
+#define SUCCESS       0
 #define PROCESS_ERROR 1
 
 //globals for main program arguments
@@ -46,20 +46,27 @@ int topcount(25);  		   		    //default
 std::string filename="";
 bool stats=false;			        //print stats
 filter_t filter = shrink;		    //default
-bool parallel=false;
-int  ram(3);					    //default ram 3gb
+
+memusage_map_t memusg_map {{"min",minn},{"low",low},{"medium",medium},{"high",high},{"max",maxx}};
+
+int  mem_usage(high);				//we all love speed
 
 
 void PrintUsage()
 {
-	cout<<"Usage: SBStask --filename <FILENAME> --kmersize <[1-31]]> --topcount <int> [--stats --[fp/nofilter] ]\n"<<endl;
+	cout<<"Usage: SBStask --filename <FILENAME> --kmersize <[1-31]]>"<<endl
+		                  <<"--topcount <int>"
+		                  <<"[--stats --[fp/nofilter] --mem_usage[low/medium/high]]"
+		<<endl<<endl;
+	cout<<"======================Program Arguments========================="<<endl;
 	cout<<"--filename       :<string>path of the fastq file"<<endl;
 	cout<<"--kmersize       :<integer>size of kmer [1-31]"<<endl;
 	cout<<"--topcount       :<integer>top N kmers mostly observed"<<endl;
 	cout<<"other options    :"<<endl;
-	cout<<"--stats          : display information about hash infrastructure"<<endl;
-	cout<<"--fp             : apply bloom filter"<<endl;
-	cout<<"--no filter      : apply no filter"<<endl;
+	cout<<"--stats          :display information about hash infrastructure"<<endl;
+	cout<<"--fp             :apply bloom filter"<<endl;
+	cout<<"--no filter      :apply no filter"<<endl;
+	cout<<"--mem_usage      :<high/medium/low>"<<endl;
 
 }
 
@@ -76,7 +83,7 @@ int ArgParse(int argc, char *argv[])
 			{"fp",	 			no_argument,	    0,  'p' },
 			{"fn", 				no_argument,	    0,  'n' },
 			{"no filter", 		required_argument,	0,  'x' },
-			{"ram", 			required_argument,	0,  'r' },
+			{"mem_usage",		required_argument,	0,  'r' },
 			{0,           		0,                  0,  0   }
 	};
 
@@ -103,7 +110,8 @@ int ArgParse(int argc, char *argv[])
 			filter= nofilter;
 			break;
 		case 'r' :
-			ram = stoi(optarg);
+			mem_usage=memusg_map[std::string(optarg)];
+			cout<<"mem usage:"<<mem_usage<<endl;
 			break;
 		default:
 			PrintUsage();
@@ -111,6 +119,11 @@ int ArgParse(int argc, char *argv[])
 		}
 	}
 	if (kmersize <= 0 || topcount <=0 ||filename=="") {
+		PrintUsage();
+		exit(PROCESS_ERROR);
+	}
+	if(mem_usage==0){
+		cout<<"mem_usage is not defined (use max||high||medium||low||min)"<<endl;
 		PrintUsage();
 		exit(PROCESS_ERROR);
 	}
@@ -126,9 +139,10 @@ int main(int argc, char *argv[]) {
 	unsigned long long filesize=getFileSize(filename,line_length);
 	unsigned long long linenum = estimate_line_num(filesize);
 	unsigned long long est_inst= estimate_insertions(linenum,line_length,kmersize);
+	cout<<"mem usage:"<<mem_usage<<endl;
 	std::shared_ptr<KMER_COUNTER> kmerobj (new KMER_COUNTER(filename,topcount,
 															kmersize,stats,filter,
-															ram,est_inst,line_length));
+															mem_usage,est_inst,line_length));
 	volatile clock_t begin = clock();
 	kmerobj->Begin();
 	volatile clock_t end = clock();

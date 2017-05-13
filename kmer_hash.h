@@ -5,17 +5,16 @@
 #include <vector>
 #include <string>
 #include <fstream>
+#include <map>
 
-#define UNIQUE 1
-#define SEQ_READ_BUFFER 10000
+#define UNIQUE         1
 #define NUMLINES_ENTRY 4
 #define VALID_ENTRY    2
-#define SAMPLE_FILE_SIZE 47363704  //sample file 47 mb
-#define SAMPLE_FILE_LINENUMBER 799440
+
+//predefined hash size
 #define HASHSIZE  (1ULL<<25)
-//hash size threshold per shrink
-#define THRES_PER_SHR ((HASHSIZE>>2)+(HASHSIZE>>4)) //(10*(1ULL<<20))
-#define CALLFILTERFUNC(x,y) (this->*m_filter_ptr_arr[m_filtertyp])(x,y)
+//predefined hash size threshold per shrink
+#define THRES_PER_SHR ((HASHSIZE>>2)+(HASHSIZE>>4)) //(10*1024*1024)
 
 
 typedef unsigned long long int u_32bits;
@@ -34,6 +33,16 @@ enum filter_t {
 	nofilter
 };
 
+enum mem_usage_t{
+	minn=0x10,
+	low,
+	medium,
+	high,
+	maxx
+};
+
+typedef std::map<std::string,int> memusage_map_t;
+
 //Base class holds basic attributes for kmer processing.
 //Example :
 //std::shared_ptr<KMER_COUNTER> kmerobj
@@ -51,23 +60,57 @@ class KMER_COUNTER
 public:
 
 	explicit KMER_COUNTER(std::string & filename,kint topcount,
-						  kint kmersize, bool stats,
-						  filter_t filter,int ram,
-						  unsigned long long num_insertions,unsigned int linelength):
-		m_fastq_file(filename),
-		m_topcount(topcount),
-		m_kmer_size(kmersize),
-		m_stats(stats),
-		m_filtertyp(filter),
-		m_shrink_cnt(0),
-		m_ram(ram),
-		m_estimated_insertions(num_insertions),
-		m_linelength(linelength)
-		{
-			m_filter_ptr_arr[0]=&KMER_COUNTER::Shrink_Insert;
-			m_filter_ptr_arr[1]=&KMER_COUNTER::Bloom_Insert;
-			m_filter_ptr_arr[2]=&KMER_COUNTER::Insert;
-		};
+			kint kmersize, bool stats,
+			filter_t filter,int ram,
+			unsigned long long num_insertions,unsigned int linelength):
+			m_fastq_file(filename),
+			m_topcount(topcount),
+			m_kmer_size(kmersize),
+			m_stats(stats),
+			m_filtertyp(filter),
+			m_shrink_cnt(0),
+			m_memusg(ram),
+			m_estimated_insertions(num_insertions),
+			m_linelength(linelength),
+			m_empty(false)
+	{
+		m_filter_ptr_arr[0]=&KMER_COUNTER::Shrink_Insert;
+		m_filter_ptr_arr[1]=&KMER_COUNTER::Bloom_Insert;
+		m_filter_ptr_arr[2]=&KMER_COUNTER::Insert;
+	};
+	explicit KMER_COUNTER():
+							m_fastq_file(""),
+							m_topcount(0),
+							m_kmer_size(0),
+							m_stats(0),
+							m_filtertyp(nofilter),
+							m_shrink_cnt(0),
+							m_memusg(0),
+							m_filter_ptr_arr(),
+							m_estimated_insertions(0),
+							m_linelength(0),
+							m_empty(true)
+	{};
+	//move constructer
+	KMER_COUNTER(KMER_COUNTER&& other):
+		m_topcount(other.m_topcount),
+		m_kmer_size(other.m_kmer_size),
+		m_stats(other.m_stats),
+		m_filtertyp(other.m_filtertyp),
+		m_shrink_cnt(other.m_shrink_cnt),
+		m_memusg(other.m_memusg),
+		m_estimated_insertions(other.m_estimated_insertions),
+		m_linelength(other.m_linelength),
+	    m_empty(false)
+	{
+		m_filter_ptr_arr[0]=&KMER_COUNTER::Shrink_Insert;
+		m_filter_ptr_arr[1]=&KMER_COUNTER::Bloom_Insert;
+		m_filter_ptr_arr[2]=&KMER_COUNTER::Insert;
+		other.ClearSequenceHash();
+		other.ClearTopVector();
+		other.m_empty=true;
+	};
+	KMER_COUNTER& operator=(KMER_COUNTER&& other);
 	virtual ~KMER_COUNTER();
 	virtual void Begin(void);
 	virtual void Init(void);
@@ -90,10 +133,11 @@ protected:
 	filter_t m_filtertyp;
 	bloom_filter m_bloom_filter;
 	kint m_shrink_cnt;
-	int m_ram;
+	int m_memusg;
 	filter_ptr m_filter_ptr_arr[3];
 	unsigned long long m_estimated_insertions;
 	unsigned int m_linelength;
+	bool m_empty;
 };
 
 #endif //KMER_HASH_H

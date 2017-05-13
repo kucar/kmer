@@ -7,7 +7,6 @@
 
 #ifndef NUCLEOTIDE_DEFS_H_
 #define NUCLEOTIDE_DEFS_H_
-
 enum nucleotideCode_t {
 	A = 'A',
 	C = 'C',
@@ -19,6 +18,7 @@ enum nucleotideCode_t {
 int indexMapper[T + 1] = {0};
 
 char indexRevMapper[4]={0};
+
 
 
 #endif /* NUCLEOTIDE_DEFS_H_ */

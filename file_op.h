@@ -12,6 +12,8 @@
 #include <iostream>
 #include <string>
 
+#define SAMPLE_FILE_SIZE 47363704  //sample file 47 mb
+#define SAMPLE_FILE_LINENUMBER 799440
 //get file size and nucleotide line length
 inline unsigned long long getFileSize(std::string & filename,unsigned int& length)
 {
