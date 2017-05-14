@@ -10,21 +10,22 @@
 #include <string.h>
 #include <omp.h>
 
-//predefined hash map load factor threshold per shrink
+//predefined hash map load factor threshold per shrink (if shrink filter is selected)
+//this is to avoid high rate of collisions
 loadfactor_thr_t loadfactor_thr={{minn,0.20},{low,0.25},{medium,0.30},{high,0.35},{maxx,0.40}};
 
 
 inline uint32_t tune_shrink_threshold(int memusg)  {
-	return (memusg==maxx)    ? THRES_PER_SHR<<6 :
-		   (memusg==high)   ?  THRES_PER_SHR<<4 :
-		   (memusg==medium) ?  THRES_PER_SHR<<2 :
-		   (memusg==low)    ?  THRES_PER_SHR<<1 : THRES_PER_SHR ;
+	return     (memusg==maxx)    ?  THRES_PER_SHR<<4 :
+		   (memusg==high)    ?  THRES_PER_SHR<<3 :
+		   (memusg==medium)  ?  THRES_PER_SHR<<2 :
+		   (memusg==low)     ?  THRES_PER_SHR<<1 : THRES_PER_SHR ;
 }
 
 inline uint32_t tune_hashsize(int memusg)
 {
-	return  (memusg==maxx)   ?  HASHSIZE<<6 :
-			(memusg==high)   ?	HASHSIZE<<4 :
+	return          (memusg==maxx)   ?      HASHSIZE<<4 :
+			(memusg==high)   ?	HASHSIZE<<3 :
 			(memusg==medium) ?	HASHSIZE<<2 :
 			(memusg==low)    ? 	HASHSIZE<<1 : HASHSIZE ;
 }
@@ -205,12 +206,16 @@ inline void KMER_COUNTER::ShrinkHash(void)
 {
 #ifdef DEBUG_M
 	volatile clock_t begin = clock();
+	unsigned int cnt =0;
 #endif
 	for (auto it=m_sequencehash_zip.begin();it!=m_sequencehash_zip.end();)
 	{
 		if(it->second==UNIQUE)
 		{
 			it = m_sequencehash_zip.erase(it);
+#ifdef DEBUG_M
+                        ++cnt;
+#endif
 		}
 		else
 		{
@@ -221,6 +226,7 @@ inline void KMER_COUNTER::ShrinkHash(void)
 	volatile clock_t end = clock();
 	double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
 	std::cout<<"elapsed sec for shrinkHash():"<<elapsed_secs<<std::endl;
+	std::cout<<"erased count                :"<<cnt<<std::endl;
 #endif
 			
 	}
@@ -229,17 +235,24 @@ inline void KMER_COUNTER::Shrink_Insert(std::string& _line,unsigned int _limit)
 {
 
 	std::string subs;
-	unsigned long long shrink_threshold=tune_shrink_threshold(m_memusg);
+	static unsigned long long shrink_threshold=tune_shrink_threshold(m_memusg);
+        static float lf_threshold                 =loadfactor_thr[m_memusg];
+	auto current_lf=m_sequencehash_zip.load_factor();
 	for ( unsigned int index=0; index<=_limit;  ++index)
 	{
 		subs=_line.substr(index,m_kmer_size);
 		++m_sequencehash_zip[char2bit(subs, m_kmer_size)];
 	}
-	if( m_sequencehash_zip.size()>=shrink_threshold || m_sequencehash_zip.load_factor()>loadfactor_thr[m_memusg] )
+	if( m_sequencehash_zip.size()>=shrink_threshold || current_lf>=lf_threshold )
 	{
+#ifdef DEBUG_M
+	 	std::cout<<"shrink threshold = :"<<shrink_threshold<<std::endl;
+		std::cout<<" current lf      = :"<<current_lf<<std::endl;
+#endif
 		ShrinkHash();
 		++m_shrink_cnt;
-		shrink_threshold+=shrink_threshold;
+		shrink_threshold*=1.01;
+		lf_threshold    *=1.01;
 	}
 	
 }

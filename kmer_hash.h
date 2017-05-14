@@ -47,14 +47,14 @@ typedef std::map<std::string,mem_usage_t> memusage_map_t;
 //Base class holds basic attributes and methods for kmer processing.
 //Example :
 //std::shared_ptr<KMER_COUNTER> kmerobj
-//									(new KMER_COUNTER(filename,
+//									                                 (new KMER_COUNTER(filename,
 //													 topcount,
 //													 kmersize,
 //													 stats,
 //													 filtertype,
 //													 mem_usage,
 //													 expected_number_insertions,
-//                                                   nucleotide_line_length_infile
+//                                                                                                       nucleotide_line_length_infile
 //												     ));
 class KMER_COUNTER 
 {

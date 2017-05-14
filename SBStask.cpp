@@ -1,20 +1,18 @@
 /* Task : K-mer counting
- * Algorithm: each k-mer of size "kmersize" hashed into a STL hash map
- * Detail   : Input argument "filename" will be modified as only
- * 			  2nd lines of each entry will be placed on the file. File process
- * 			  handled by seperate sed command by system call.Then it is read sequentially
- *            line by line , each line will be processed against the
- *            hash map where kmer string is key and the count number is the value
+ * Algorithm: each k-mer of size "kmersize" hashed into a STL unordered_map
+ * Detail   : Input argument "filename" will be read as only
+ * 			  2nd lines of each 4 lines will be processed. Each valid line
+ * 			  will be processed against a  hash map where kmer string in bit
+ * 			  representation is key and the count number is the value.
  *            A hash wrapper object will be created at startup as a smart pointer.
  *            Then the rest of the main program will call init() and findTopN() methods
  *            of the object created.
  *TODO     : the program is open to refactoring based on
  *TODO       efficiency to speed up the process.
  *TODO        **eliminate substr() call - instead strview? could be used c++17 required
- *TODO        **implement a lock free multi threading mechanism ? like in jellyfish
- *TODO        **implement smart string searching algorithms ie  boyer moore  ?
- *TODO        **implement jenkins hash other than std::hash<string> ?
- *TODO     : implement a unit test mechanism like gmock
+ *TODO        **implement a lock free multi threading mechanism or use openmp?
+ *TODO        **implement murmur hash other than std::hash<string> ?
+ *TODO     :implement a unit test mechanism like gmock
  *TODO     :imlement doxygen or so for documentation
 
 
@@ -77,13 +75,13 @@ int ArgParse(int argc, char *argv[])
 			{"filename", 		required_argument,  0,  'f' },
 			{"kmersize", 		required_argument,  0,  'k' },
 			{"topcount", 		required_argument,  0,  't' },
-			{"stats", 			no_argument,	    0,  's' },
-			{"linesizestatic",  no_argument,	    0,  'l' },
-			{"help", 			no_argument,	    0,  'h' },
-			{"fp",	 			no_argument,	    0,  'p' },
-			{"fn", 				no_argument,	    0,  'n' },
-			{"no filter", 		required_argument,	0,  'x' },
-			{"mem_usage",		required_argument,	0,  'r' },
+			{"stats", 		no_argument,	    0,  's' },
+			{"linesizestatic",      no_argument,	    0,  'l' },
+			{"help", 		no_argument,	    0,  'h' },
+			{"fp",	 		no_argument,	    0,  'p' },
+			{"fn", 			no_argument,	    0,  'n' },
+			{"no filter", 		required_argument,  0,  'x' },
+			{"mem_usage",		required_argument,  0,  'r' },
 			{0,           		0,                  0,  0   }
 	};
 
@@ -139,9 +137,7 @@ int main(int argc, char *argv[]) {
 	unsigned long long linenum = estimate_line_num(filesize);
 	unsigned long long est_inst= estimate_insertions(linenum,line_length,kmersize);
 	cout<<"mem usage:"<<mem_usage<<endl;
-	std::shared_ptr<KMER_COUNTER> kmerobj (new KMER_COUNTER(filename,topcount,
-															kmersize,stats,filter,
-															mem_usage,est_inst,line_length));
+	std::shared_ptr<KMER_COUNTER> kmerobj (new KMER_COUNTER(filename,topcount,kmersize,stats,filter,mem_usage,est_inst,line_length));
 	volatile clock_t begin = clock();
 	kmerobj->Begin();
 	volatile clock_t end = clock();
