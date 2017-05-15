@@ -1,3 +1,47 @@
+Kmer Counter:
+=============
+This program calculates the top frequency N kmers of size K in a given fastq file. Input argument "filename" will be read as only 2nd lines of each 4 lines will be processed. Each valid(nucleotide) line will be processed against a hash map where kmer string in 64 bit representation is key and the count number is the value. Hash map is implemented by using c++ stl library (std::unordered_map).Hash function is also not customized . std::hash is being used in the implementation as default.
+
+Algorithm:
+=============
+The biggest obstacle  of counting k-mers is having huge amount of irrelevant data taking place in the container. That causes the process soaking the memory up and even overflow to the swap area on the disk. RAM can be stalled and process can be halted dependent on the OS .The fastq files can be in multiple GB`s and the user computer can be in minimal configuration having less than 1 or 2 GB of physical memory. 
+
+There are different approaches to tackle the problem in accurate and efficient ways but many of them have to sacrifice 
+accuracy to get more time efficiency/memory usage. 
+
+(ref:http://journals.plos.org/plosone/article?id=10.1371/journal.pone.0101271)
+
+This implementation has 2 optional filters to eliminate low abundant data in the container.
+
+1) Shrink Filter (my implementation) : Effectively reduces the size of the container (std::unordered_map) by simply iterating through. Filter uses unordered_map::erase() method when the encountered kmer has a count value of 1. This filter is triggered when the hashmap size overflows predefined size threshold OR  hashmap collision 
+rate reaches to collision rate threshold. These threshold values are predefined and later tuned accordingly to the memory usage parameter(user parameter). As filter run once , threshold values are increased by %1 dynamically during run time allowing memory consumption to rise slowly.
+
+Shrink filter has only impact on unique kmers seen until filter is called. If we assume the filter is called X times, then the count of top N kmers is maximally impacted by a count of X. Thus we have a chance of X false negatives (in counts) for each kmer. The false negative probability changes accordingly with the count of kmers. The program may display stats (--stats option) about the filter printing the number of shrink operations and the average value of false negative rate of the top N winner kmers. 
+
+One advantage of Shrink Filter is effectively reducing the size of the hash map. This ends up with minimizing the collision rate in the hashmap and also bounding the memory consumption. Lookup and insertion times are also reduced. As oppose to the 
+other probabilistic methodologies, Shrink filter is more accurate trading off time efficiency in expense.
+
+Main disadvantage of the filter is having O(n) time complexity. Assuming filter takes time T for the Hashmap of size = SZ, then the next call will take time T+t where t is 0<=t<T. The size of the hash map will also be increased by sz by successive calls. The filter can be multithreaded (basically by using openmp) in future versions to distribute the work to the multiple cores.
+
+Shrink filter is the default filter when no other options selected.
+   
+2) Bloom filter:  Its a probabilistic data structure  to comment whether an element is NOT present in the container. Oppose of Shrink Filter , Bloom guarantees there will be no false negatives. Bloom filter is widely used in many diverse application areas and Bloom Filter Counter (aka BFC) is an example of kmer counting application using bloom filter.
+As BFC , this program also makes use of open source bloom filter library written by Arash Partow (http://www.partow.net)
+
+Bloom filter can be selected by fp option in the main program arguments. (--fp)
+
+Memory Usage
+==============
+Memory usage option allows the user to specify the rate of memory usage by minimum,low,medium,high,max keywords. The default is high. This option is used to tune the hash size , shrink threshold size and collision rate threshold at startup. 
+It should be good practice to employ "min" or "low" options for computers having less than 3 gb of physical memory.
+
+"max" options should be avoided for multiple GB's of fastq files as well.
+
+Kmer Size
+===============
+This option is default 30 and the program does not support kmer size greater than 31 for this version. ULL type was used to 
+encrypt/decrypt the string in 64 bit representation where each nucleotide char is shown as 2 bits.
+
 developed & tested with
 =======================
 
@@ -11,10 +55,25 @@ configuration & installation
 *make
 *./SBStask --help for command line options
 
+Main Program Options
+================================
+>>./SBStask --help
+Usage: SBStask --filename <FILENAME> --kmersize <[1-31]]>
+--topcount <int>[--stats --[fp/nofilter] --mem_usage[low/medium/high]]
 
-sample output
+======================Program Arguments=========================
+--filename       :<string>path of the fastq file
+--kmersize       :<integer>size of kmer [1-31]
+--topcount       :<integer>top N kmers mostly observed
+other options    :
+--stats          :display information about hash infrastructure
+--fp             :apply bloom filter
+--no filter      :apply no filter
+--mem_usage      :<high/medium/low>
+
+sample output 1
 =============================
-kucar@kucar-makine:~/workspace/SBStask$ ./SBStask --filename kmer.fastq --kmersize 30 --topcount 25 --stats 
+kucar@kucar-makine:~/workspace/SBStask$ ./SBStask --filename kmer.fastq --kmersize 30 --topcount 25
 { TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT, 300}
 { AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA, 219}
 { ACACACACACACACACACACACACACACAC, 152}
@@ -30,9 +89,45 @@ kucar@kucar-makine:~/workspace/SBStask$ ./SBStask --filename kmer.fastq --kmersi
 { GAAAAGGATCAAGAGCCCATTTATGCCATA, 42}
 { AGAGGAGAAAGATGAAAAGGATCAAGAGCC, 42}
 { GAGGAGAAAGATGAAAAGGATCAAGAGCCC, 42}
-hash size = 11614379
-bucket count = 33712729
-load_factor = 0.34451
-max_load_factor = 1
-elapsed sec:6.32985
-top vector size: 15
+
+sample output 2 (bloom filter and print stats)
+=============================
+
+kucar@kucar-makine:~/workspace/SBStask$  time ./SBStask --filename ../xad --kmersize 30 --topcount 25 --stats --fp
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT---3789
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA---3069
+ACACACACACACACACACACACACACACAC---2891
+CACACACACACACACACACACACACACACA---2789
+GTGTGTGTGTGTGTGTGTGTGTGTGTGTGT---2774
+TGTGTGTGTGTGTGTGTGTGTGTGTGTGTG---2720
+TTAGGGTTAGGGTTAGGGTTAGGGTTAGGG---1561
+GTTAGGGTTAGGGTTAGGGTTAGGGTTAGG---1543
+GGTTAGGGTTAGGGTTAGGGTTAGGGTTAG---1539
+GGGTTAGGGTTAGGGTTAGGGTTAGGGTTA---1533
+AGGGTTAGGGTTAGGGTTAGGGTTAGGGTT---1529
+TAGGGTTAGGGTTAGGGTTAGGGTTAGGGT---1517
+CCTGTAATCCCAGCACTTTGGGAGGCCGAG---1464
+TCACGCCTGTAATCCCAGCACTTTGGGAGG---1447
+GCTCACGCCTGTAATCCCAGCACTTTGGGA---1446
+CTCACGCCTGTAATCCCAGCACTTTGGGAG---1440
+TGGCTCACGCCTGTAATCCCAGCACTTTGG---1438
+CACGCCTGTAATCCCAGCACTTTGGGAGGC---1431
+GGCTCACGCCTGTAATCCCAGCACTTTGGG---1431
+GTGGCTCACGCCTGTAATCCCAGCACTTTG---1428
+CTGTAATCCCAGCACTTTGGGAGGCCGAGG---1426
+CTCGGCCTCCCAAAGTGCTGGGATTACAGG---1303
+CCTCGGCCTCCCAAAGTGCTGGGATTACAG---1293
+CCTCCCAAAGTGCTGGGATTACAGGCGTGA---1285
+ACCCTAACCCTAACCCTAACCCTAACCCTA---1282
+elapsed sec for fındTopN:8.42355
+bucket count = 68460391
+load_factor = 0.899544
+top vector size: 25
+shrink :0
+bloom : 1
+effective false positive (bloom) 0.08114
+elapsed sec before destructor operation:99.0884
+
+real    1m48.597s
+user    1m46.320s
+sys 0m1.748s

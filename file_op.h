@@ -52,7 +52,8 @@ inline unsigned long long estimate_line_num(unsigned long long fsize)
 inline unsigned long long estimate_insertions(unsigned long long line_num,int line_length,int kmersize)
 {
 	auto eff_line_num=line_num/NUMLINES_ENTRY;
-	return eff_line_num*(line_length-kmersize);
+	//20 percent add to be safe
+	return 1.20*eff_line_num*(line_length-kmersize);
 }
 
 #endif /* FILE_OP_H_ */
