@@ -43,8 +43,8 @@ using namespace std;
 kmer_int kmersize(30);                  //default
 kmer_int topcount(25);                  //default
 std::string filename="";
-bool stats=false;                   //print stats
-filter_t filter = shrink;           //default
+bool stats=false;                       //print stats
+filter_t filter = shrink;               //default
 
 memusage_map_t memusg_map {{"min",minn},{"low",low},{"medium",medium},{"high",high},{"max",maxx}};
 
@@ -56,7 +56,7 @@ void PrintUsage()
     cout<<"Usage: SBStask --filename <FILENAME> --kmersize <[1-31]]>"<<endl
     <<"--topcount <int>"<<"[--stats --[fp/nofilter] --mem_usage[low/medium/high]]"
     <<endl<<endl;
-    
+
     cout<<"======================Program Arguments========================="<<endl;
     cout<<"--filename       :<string>path of the fastq file"<<endl;
     cout<<"--kmersize       :<integer>size of kmer [1-31]"<<endl;

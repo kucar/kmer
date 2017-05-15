@@ -8,7 +8,6 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
-#include <omp.h>
 
 //predefined hash map load factor threshold per shrink (if shrink filter is selected)
 //this is to avoid high rate of collisions
